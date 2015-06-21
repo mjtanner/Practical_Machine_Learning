@@ -1,0 +1,110 @@
+---
+title: "Practical Maching Learning Course Project"
+author: "Matthew Tanner"
+date: "06/21/2015"
+output: html_document
+---
+###Introduction
+The project is intended to show that the manner in which an exercise was performed can be statically inferred from collected accelerometric data collected during the performance of the exercise. Using accelerometric data collection devices, researchers collected body position and movement data relative to the performance of barbell lifts. This project is intended to show that qualatatives characterizations regarding the correctness of performance of the exercise relative to a defined standard can be statically inferred from collected data.  
+
+
+###Importing and Conditioning the Data
+We read and supplant all missing data with the standard system "NA" symbol.
+```{r}
+current<-getwd()
+setwd("/home/user")
+pmlData <- read.csv("pml-training.csv", na.strings = c("","NA","#DIV/0!"))
+setwd(current)
+```
+
+As all columns missing values are missing a number of values exceeding 19000 values, we drop all columns missing any values. We also drop all columns capturing information about experimental units i.e. user_name, raw_timestamp_part_1, etc.
+```{r}
+# Get a list of columns missing values.
+drops <- ""
+for (name in names(pmlData)) {
+  missingCount <- sum(is.na(pmlData[,name]))
+  if (missingCount > 0) {
+    drops <- c(drops,name)
+  }
+}
+# Add to list columns with experimental unit data.
+drops <- c(drops,"X")
+drops <- c(drops,"user_name")
+drops <- c(drops,"raw_timestamp_part_1")
+drops <- c(drops,"raw_timestamp_part_2")
+drops <- c(drops,"cvtd_timestamp")
+drops <- c(drops,"new_window")
+drops <- c(drops,"num_window")
+
+# Drop all excluded columns.
+pmlData <- pmlData[,!(names(pmlData) %in% drops)]
+```
+
+###Data Partition and Model Building
+Next, we partition the data for model developement and model assessment using the Caret Package partition utility. Then we train a model using the "Random Forrest" method.
+```{r}
+library(caret)
+trainIndex <- createDataPartition(y = pmlData$classe, p = .75, list = FALSE)
+trainSet <- pmlData[trainIndex,]
+testSet  <- pmlData[-trainIndex,]
+```
+
+Next, the model is fitted using the random forrest method.
+```{r,eval=FALSE}
+library(randomForest)
+set.seed(2718)
+currentPath <- getwd()
+modelFit <- train(classe ~ ., data = trainSet, method = "rf")
+modelFit
+```
+#### Non-Reproducible
+Random Forest 
+
+14718 samples
+   48 predictors
+    5 classes: '1', '2', '3', '4', '5' 
+
+No pre-processing
+Resampling: Bootstrapped (25 reps) 
+
+Summary of sample sizes: 14718, 14718, 14718, 14718, 14718, 14718, ... 
+
+Resampling results across tuning parameters:
+
+  mtry  Accuracy   Kappa      Accuracy SD  Kappa SD   
+   2    0.9889414  0.9860095  0.001545818  0.001954956
+  25    0.9900669  0.9874341  0.001485559  0.001881195
+  48    0.9841437  0.9799412  0.001998630  0.002528571
+
+Accuracy was used to select the optimal model using  the largest value.
+The final value used for the model was mtry = 25. 
+
+
+```{r,eval=FALSE}
+predictions <- predict(modelFit, newdata = testSet)
+confusionMatrix(predictions, testSet$classe)
+
+```
+###Cross Validation and Model Evaluation
+We see that the modee achieves a 99% accuracy. We know that this level of performance is optimistic vis-a-vis trials with new data.
+
+#### Non-Reproducible
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    1    2    3    4    5
+         1 1395    0    0    0    0
+         2    0  949    1    0    1
+         3    0    0  853    1    0
+         4    0    0    1  803    1
+         5    0    0    0    0  899
+
+Overall Statistics
+                                          
+               Accuracy : 0.999           
+                 95% CI : (0.9976, 0.9997)
+    No Information Rate : 0.2845          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.9987          
+ Mcnemar's Test P-Value : NA              
